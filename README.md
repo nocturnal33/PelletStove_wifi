@@ -3,8 +3,8 @@
 - EMAX Servo ES08A (x1)
 - ELEGOO ESP-32 (Or similar) (x1)
 - 8mm x 2mm Round Magnets (x3)
-- - M2 X4 Hex screws (x5)
--   for Servo (x2)
+- M2 X4 Hex screws (x5)
+-   Forr Servo (x2)
 -   for ESP32 (x3)
 
 ## 3D print the parts
