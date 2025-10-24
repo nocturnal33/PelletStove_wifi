@@ -1,16 +1,16 @@
 # Add wifi to your pelpro 130
 ## Parts: 
-- EMAX Servo ES08A (1)
-- ELEGOO ESP-32 (Or similar) (1)
-- 8mm x 2mm Round Magnets (3)
+- EMAX Servo ES08A (x1)
+- ELEGOO ESP-32 (Or similar) (x1)
+- 8mm x 2mm Round Magnets (x3)
+- - M2 X4 Hex screws (x5)
+-   for Servo (x2)
+-   for ESP32 (x3)
 
 ## 3D print the parts
 - Servo Motor / ESP case
 - Servo Spur gear
 - PelPro Gear
-- M2 X4 Hex screws (5)
--   2 for Servo
--   3 for ESP32
 
 ## Flash ESP32
 - Use your IP Address / Subnet / DNS
