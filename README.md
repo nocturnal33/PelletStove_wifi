@@ -3,7 +3,14 @@
 > THIS CONTROLS FIRE IN YOUR HOUSE!<br>
 > IF YOU ARE NOT COMFORTABLE WITH ANY OF THIS, WALK AWAY
 
-# Add wifi to your pelpro 130
+# Add wifi to your PelPro 130
+* This has only been tested on a PelPro 130 *
+
+## Purpose
+The purpose of this is to be able to turn on the pellet stove from anywhere in the house. Maybe it's 2am and it's getting cold in the house. Go to the IP address, login, and turn it on. You cann turn it off, adjust heat level, all from the comfort of your bed.<br>
+You still have to make sure you have Pellets loaded, the burn pot is clean, etc... <br>
+This project assumes you are at home, near the PelPro if something were to go wrong - you will be there to monitor the pellet stove.
+
 ## Parts: 
 - EMAX Servo ES08A (x1)
 - ELEGOO ESP-32 (Or similar) (x1)
@@ -36,3 +43,6 @@ After 3D printing parts - super glue magnets in enclosure, screw in the ESP32 us
 6. Go to the IP address you selected in the .ino file and enter the password you chose
 7. Test
 8. Turn ON the pellet stove and enjoy
+
+## Manually adjusting heat on the PP130
+Now that the servo is attached to the pellet stove, it will be harder to manually turn on the pellet stove. Keep an old phone or tablet near the PelPro 130 and use that instead of manually adjusting, or, because it is magnetically attached, move it away from the spur gear and adjust. 
