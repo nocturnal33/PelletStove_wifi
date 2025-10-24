@@ -16,8 +16,9 @@ This project assumes you are at home, near the PelPro if something were to go wr
 - ELEGOO ESP-32 (Or similar) (x1)
 - 8mm x 2mm Round Magnets (x3)
 - M2 X4 Hex screws (x5)
--   Forr Servo (x2)
--   for ESP32 (x3)
+   - For Servo (x2)
+   - For ESP32 (x3)
+
 
 ## 3D print the parts in ABS, PETG, or ASA. Do not use PLA
 - Servo Motor / ESP case
