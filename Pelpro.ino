@@ -531,7 +531,9 @@ void setup() {
   
   server.begin();
   Serial.println("Web server started!");
-  Serial.println("Access at: http://10.0.0.216");
+  Serial.println("Access at: "); 
+  Serial.print(HeatLevel);
+  Serial.println("");
 }
 
 void loop() {
