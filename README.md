@@ -19,7 +19,7 @@ This project assumes you are at home, near the PelPro if something were to go wr
 -   Forr Servo (x2)
 -   for ESP32 (x3)
 
-## 3D print the parts
+## 3D print the parts in ABS, PETG, or ASA. Do not use PLA
 - Servo Motor / ESP case
 - Servo Spur gear
 - PelPro Gear
