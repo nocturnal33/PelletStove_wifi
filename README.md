@@ -36,7 +36,7 @@ This project assumes you are at home, near the PelPro if something were to go wr
 
 After 3D printing parts - super glue magnets in enclosure, screw in the ESP32 using M2 screws, screw in the Servo using M2 screws.
 
-1. Remove the knob on the PelPro 130 and replace with printed gear.
+1. Remove the knob on the PelPro 130 and replace with printed gear. Use a little sticky tack to make sure it does not come off.
 2. Attach the magnetic base to the pellet stove
 3. Attach the spur gear to the servo
 4. Align the gears
