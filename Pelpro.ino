@@ -6,20 +6,22 @@
 const char* ssid = "";
 const char* password = "";
 
-// Web interface password
-const char* webPassword = "SetPasswordHere";
-
 // Static IP configuration
-// use IP address: x, x, x, x
-IPAddress local_IP(192, 168, 5, 100);
-IPAddress gateway(192, 168, 5, 1);
-IPAddress subnet(255, 255, 255, 0);
-IPAddress primaryDNS(8, 8, 8, 8);
-IPAddress secondaryDNS(1, 1, 1, 1);
+// format ip address as x, x, x, x
+IPAddress local_IP();
+IPAddress gateway();
+IPAddress subnet();
+IPAddress primaryDNS();
+IPAddress secondaryDNS();
 
 // Servo setup
 Servo myServo;
 const int servoPin = 18;
+
+// LED setup
+const int ledPin = 2; // Built-in LED on GPIO2
+unsigned long lastLedBlink = 0;
+bool ledState = false;
 
 // Web server on port 80
 WebServer server(80);
@@ -27,117 +29,54 @@ WebServer server(80);
 // Current Heat level (0-8)
 int HeatLevel = 0;
 
-// Session management
-String sessionToken = "";
-const unsigned long sessionTimeout = 3600000; // 1 hour in milliseconds
-unsigned long lastActivity = 0;
-
-// Generate a simple session token
-String generateToken() {
-  String token = "";
-  for (int i = 0; i < 32; i++) {
-    token += String(random(0, 16), HEX);
+// Control LED and Servo based on WiFi status
+void updateWiFiLED() {
+  static wl_status_t lastWifiStatus = WL_IDLE_STATUS;
+  wl_status_t wifiStatus = WiFi.status();
+  unsigned long currentTime = millis();
+  
+  // Check if WiFi was just disconnected
+  if (lastWifiStatus == WL_CONNECTED && wifiStatus != WL_CONNECTED) {
+    // WiFi just disconnected - reset servo to 0
+    myServo.write(0);
+    HeatLevel = 0;
+    Serial.println("WiFi disconnected - Servo reset to 0");
   }
-  return token;
+  
+  lastWifiStatus = wifiStatus;
+  
+  switch (wifiStatus) {
+    case WL_CONNECTED:
+      // Solid LED when connected (active-low LED)
+      digitalWrite(ledPin, LOW);
+      break;
+      
+    case WL_IDLE_STATUS:
+    case WL_NO_SSID_AVAIL:
+    case WL_SCAN_COMPLETED:
+    case WL_CONNECT_FAILED:
+    case WL_CONNECTION_LOST:
+    case WL_DISCONNECTED:
+      // Fast blink when disconnected or failed (250ms intervals)
+      if (currentTime - lastLedBlink >= 250) {
+        ledState = !ledState;
+        digitalWrite(ledPin, ledState ? HIGH : LOW);
+        lastLedBlink = currentTime;
+      }
+      break;
+      
+    default:
+      // Slow blink for any other status (1 second intervals)
+      if (currentTime - lastLedBlink >= 1000) {
+        ledState = !ledState;
+        digitalWrite(ledPin, ledState ? HIGH : LOW);
+        lastLedBlink = currentTime;
+      }
+      break;
+  }
 }
 
-// Login page HTML
-const char loginPage[] PROGMEM = R"=====(
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login - Heat Control</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin-top: 100px;
-      background-color: #f0f0f0;
-    }
-    .login-container {
-      background: white;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      max-width: 300px;
-      margin: 0 auto;
-    }
-    h1 {
-      color: #333;
-      margin-bottom: 30px;
-    }
-    input[type="password"] {
-      width: 100%;
-      padding: 12px;
-      margin: 10px 0;
-      border: 2px solid #ddd;
-      border-radius: 5px;
-      box-sizing: border-box;
-      font-size: 16px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      margin-top: 10px;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    .error {
-      color: red;
-      margin-top: 10px;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="login-container">
-    <h1>Heat Control</h1>
-    <form id="loginForm">
-      <input type="password" id="password" placeholder="Enter Password" required autofocus>
-      <button type="submit">Login</button>
-      <div class="error" id="errorMsg">Incorrect password!</div>
-    </form>
-  </div>
-
-  <script>
-    document.getElementById('loginForm').onsubmit = function(e) {
-      e.preventDefault();
-      var pass = document.getElementById('password').value;
-      var xhr = new XMLHttpRequest();
-      xhr.onreadystatechange = function() {
-        if (this.readyState == 4) {
-          if (this.status == 200) {
-            // Get the token from the response
-            var token = this.responseText;
-            console.log("Login successful, token: " + token);
-            // Try cookie first, then fallback to URL parameter
-            window.location.href = "/?token=" + encodeURIComponent(token);
-          } else {
-            document.getElementById('errorMsg').style.display = 'block';
-            document.getElementById('password').value = '';
-            document.getElementById('password').focus();
-          }
-        }
-      };
-      xhr.open("POST", "/login", true);
-      xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-      xhr.send("password=" + encodeURIComponent(pass));
-    }
-  </script>
-</body>
-</html>
-)=====";
-
-// Main control page HTML
+// Main control page HTML (no password protection)
 const char webpage[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
@@ -155,12 +94,6 @@ const char webpage[] PROGMEM = R"=====(
     h1 {
       color: #333;
       font-size: 30px;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-    h3{
-      color: #ff3300;
-      font-size: 20px;
       font-weight: bold;
       margin-bottom: 20px;
     }
@@ -252,24 +185,10 @@ const char webpage[] PROGMEM = R"=====(
     .labels span:hover {
       background-color: rgba(244, 67, 54, 0.1);
     }
-    .logout-btn {
-      margin-top: 60px;
-      padding: 10px 30px;
-      background-color: #f44336;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .logout-btn:hover {
-      background-color: #da190b;
-    }
   </style>
 </head>
 <body>
-  <h1>Heat Control</h1>
-  <h3>PelPro 130</h3>
+  <h1>PelPro 130 - Heat Control</h1>
   <div class="value-display" id="HeatDisplay">0</div>
   <div class="slider-container">
     <input type="range" min="0" max="8" value="0" class="slider" id="HeatSlider">
@@ -282,29 +201,27 @@ const char webpage[] PROGMEM = R"=====(
       <span onclick="setHeat(5)">5</span>
       <span onclick="setHeat(6)">6</span>
       <span onclick="setHeat(7)">7</span>
-      <span onclick="setHeat(8)">8 (HIGH)</span>
+      <span onclick="setHeat(8)">8</span>
     </div>
   </div>
-  <button class="logout-btn" onclick="logout()">Logout</button>
 
   <script>
     var slider = document.getElementById("HeatSlider");
     var display = document.getElementById("HeatDisplay");
-    
-    // Get token from URL parameters
-    function getToken() {
-      var urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('token');
-    }
+    var isDragging = false; 
+
+    slider.onmousedown = function() { isDragging = true; }
+    slider.onmouseup = function() { isDragging = false; }
+    slider.ontouchstart = function() { isDragging = true; }
+    slider.ontouchend = function() { isDragging = false; }
     
     // Set Heat when clicking on labels
     function setHeat(level) {
       slider.value = level;
       display.innerHTML = level;
       
-      var token = getToken();
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", "/setHeat?level=" + level + "&token=" + token, true);
+      xhr.open("GET", "/setHeat?level=" + level, true);
       xhr.send();
     }
     
@@ -313,14 +230,18 @@ const char webpage[] PROGMEM = R"=====(
     }
     
     slider.onchange = function() {
-      var token = getToken();
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", "/setHeat?level=" + this.value + "&token=" + token, true);
+      xhr.open("GET", "/setHeat?level=" + this.value, true);
       xhr.send();
+      isDragging = false;
     }
-    
-    window.onload = function() {
-      var token = getToken();
+
+    function getHeatState() {
+      // Only refresh if the user isn't actively dragging
+      if (isDragging) {
+        return;
+      }
+      
       var xhr = new XMLHttpRequest();
       xhr.onreadystatechange = function() {
         if (this.readyState == 4 && this.status == 200) {
@@ -328,142 +249,22 @@ const char webpage[] PROGMEM = R"=====(
           display.innerHTML = this.responseText;
         }
       };
-      xhr.open("GET", "/getHeat?token=" + token, true);
+      xhr.open("GET", "/getHeat", true);
       xhr.send();
     }
     
-    function logout() {
-      document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-      window.location.href = "/login";
-    }
+    window.onload = getHeatState;
+    setInterval(getHeatState, 10000); // 10000ms = 10 seconds
   </script>
 </body>
 </html>
 )=====";
 
-// Check if user is authenticated
-bool isAuthenticated() {
-  // First check for session cookie
-  if (server.hasHeader("Cookie")) {
-    String cookie = server.header("Cookie");
-    Serial.println("Cookie received: " + cookie);
-    
-    int tokenIndex = cookie.indexOf("session=");
-    if (tokenIndex != -1) {
-      String clientToken = cookie.substring(tokenIndex + 8);
-      int endIndex = clientToken.indexOf(';');
-      if (endIndex != -1) {
-        clientToken = clientToken.substring(0, endIndex);
-      }
-      
-      Serial.println("Client token from cookie: " + clientToken);
-      Serial.println("Server token: " + sessionToken);
-      
-      // Check if token matches and hasn't expired
-      if (clientToken == sessionToken && 
-          (millis() - lastActivity < sessionTimeout)) {
-        lastActivity = millis(); // Refresh activity time
-        Serial.println("Authentication successful via cookie!");
-        return true;
-      } else {
-        Serial.println("Token mismatch or expired");
-      }
-    } else {
-      Serial.println("No session token found in cookie");
-    }
-  } else {
-    Serial.println("No cookie header found");
-  }
-  
-  // Fallback: Check for token in URL parameters
-  if (server.hasArg("token")) {
-    String urlToken = server.arg("token");
-    Serial.println("Token from URL: " + urlToken);
-    Serial.println("Server token: " + sessionToken);
-    
-    if (urlToken == sessionToken && 
-        (millis() - lastActivity < sessionTimeout)) {
-      lastActivity = millis(); // Refresh activity time
-      Serial.println("Authentication successful via URL token!");
-      return true;
-    } else {
-      Serial.println("URL token mismatch or expired");
-    }
-  }
-  
-  return false;
-}
-
-void handleLogin() {
-  server.send(200, "text/html", loginPage);
-}
-
-void handleLoginPost() {
-  Serial.println("=== LOGIN POST REQUEST ===");
-  
-  if (server.hasArg("password")) {
-    String pass = server.arg("password");
-    
-    Serial.print("Login attempt with password: ");
-    Serial.println(pass);
-    Serial.print("Expected password: ");
-    Serial.println(webPassword);
-    Serial.print("Password match: ");
-    Serial.println(pass == webPassword ? "YES" : "NO");
-    
-    if (pass == webPassword) {
-      sessionToken = generateToken();
-      lastActivity = millis();
-      Serial.println("Login successful! Token: " + sessionToken);
-      Serial.println("Session timeout: " + String(sessionTimeout) + "ms");
-      
-      // Set the session cookie in the response
-      String cookieHeader = "session=" + sessionToken + "; Path=/; Max-Age=3600";
-      Serial.println("Setting cookie header: " + cookieHeader);
-      server.sendHeader("Set-Cookie", cookieHeader);
-      server.sendHeader("Access-Control-Allow-Credentials", "true");
-      server.sendHeader("Access-Control-Allow-Origin", "*");
-      server.send(200, "text/plain", sessionToken);
-    } else {
-      Serial.println("Login failed - incorrect password");
-      server.send(401, "text/plain", "Unauthorized");
-    }
-  } else {
-    Serial.println("Login failed - no password provided");
-    server.send(400, "text/plain", "Bad Request");
-  }
-  Serial.println("=== END LOGIN POST ===");
-}
-
 void handleRoot() {
-  Serial.println("=== ROOT REQUEST ===");
-  Serial.println("Checking authentication...");
-  
-  // Debug: Print all headers received
-  Serial.println("All headers received:");
-  for (int i = 0; i < server.headers(); i++) {
-    Serial.println("Header " + String(i) + ": " + server.headerName(i) + " = " + server.header(i));
-  }
-  
-  if (isAuthenticated()) {
-    Serial.println("User is authenticated, serving main page");
-    server.sendHeader("Access-Control-Allow-Credentials", "true");
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200, "text/html", webpage);
-  } else {
-    Serial.println("User not authenticated, redirecting to login");
-    server.sendHeader("Location", "/login");
-    server.send(302, "text/plain", "Redirecting to login");
-  }
-  Serial.println("=== END ROOT REQUEST ===");
+  server.send(200, "text/html", webpage);
 }
 
 void handleSetHeat() {
-  if (!isAuthenticated()) {
-    server.send(401, "text/plain", "Unauthorized");
-    return;
-  }
-  
   if (server.hasArg("level")) {
     HeatLevel = server.arg("level").toInt();
     HeatLevel = constrain(HeatLevel, 0, 8);
@@ -483,20 +284,19 @@ void handleSetHeat() {
 }
 
 void handleGetHeat() {
-  if (!isAuthenticated()) {
-    server.send(401, "text/plain", "Unauthorized");
-    return;
-  }
   server.send(200, "text/plain", String(HeatLevel));
 }
 
 void setup() {
   Serial.begin(115200);
-  randomSeed(analogRead(0)); // For token generation
   
   // Initialize servo
   myServo.attach(servoPin);
   myServo.write(0);
+  
+  // Initialize LED (active-low)
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH); // Start with LED off (active-low)
   
   // Configure static IP
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
@@ -519,23 +319,21 @@ void setup() {
   Serial.println("WiFi connected!");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-  Serial.print("Web password is: ");
-  Serial.println(webPassword);
   
-  // Setup web server routes
+  // Setup web server routes (no authentication needed)
   server.on("/", handleRoot);
-  server.on("/login", HTTP_GET, handleLogin);
-  server.on("/login", HTTP_POST, handleLoginPost);
   server.on("/setHeat", handleSetHeat);
   server.on("/getHeat", handleGetHeat);
   
   server.begin();
   Serial.println("Web server started!");
-  Serial.println("Access at: "); 
-  Serial.print(HeatLevel);
-  Serial.println("");
+  Serial.println("No password protection - open access");
 }
 
 void loop() {
   server.handleClient();
+  
+  // Update LED based on WiFi status
+  updateWiFiLED();
 }
+
